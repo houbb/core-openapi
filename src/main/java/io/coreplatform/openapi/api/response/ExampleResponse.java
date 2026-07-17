@@ -1,4 +1,4 @@
-package io.coreplatform.openapi.application.domain;
+package io.coreplatform.openapi.api.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,14 +11,12 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiResponse {
+public class ExampleResponse {
     private Long id;
     private Long apiId;
-    private String statusCode;
-    private String contentType;
-    private String schema;
-    private String example;
-    private String description;
+    private String type;
+    private String name;
+    private String content;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

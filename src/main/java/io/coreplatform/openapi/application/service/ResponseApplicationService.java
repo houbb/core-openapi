@@ -30,6 +30,7 @@ public class ResponseApplicationService {
                 .contentType(command.getContentType() != null ? command.getContentType() : "application/json")
                 .schema(command.getSchema())
                 .example(command.getExample())
+                .description(command.getDescription())
                 .createTime(LocalDateTime.now())
                 .updateTime(LocalDateTime.now())
                 .build();
@@ -45,6 +46,7 @@ public class ResponseApplicationService {
         existing.setContentType(command.getContentType() != null ? command.getContentType() : "application/json");
         existing.setSchema(command.getSchema());
         existing.setExample(command.getExample());
+        existing.setDescription(command.getDescription());
         existing.setUpdateTime(LocalDateTime.now());
         return responseRepository.save(existing);
     }

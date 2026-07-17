@@ -11,6 +11,12 @@ public class GatewayException extends BusinessException {
         this.gatewayErrorCode = gatewayErrorCode;
     }
 
+    public GatewayException(GatewayErrorCode gatewayErrorCode, String detailMessage) {
+        super(mapToHttpStatus(gatewayErrorCode), String.valueOf(gatewayErrorCode.getCode()),
+                gatewayErrorCode.getMessage() + ": " + detailMessage);
+        this.gatewayErrorCode = gatewayErrorCode;
+    }
+
     public GatewayErrorCode getGatewayErrorCode() {
         return gatewayErrorCode;
     }

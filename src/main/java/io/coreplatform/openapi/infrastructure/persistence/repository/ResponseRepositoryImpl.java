@@ -65,6 +65,7 @@ public class ResponseRepositoryImpl implements ResponseRepository {
         entity.setContentType(domain.getContentType());
         entity.setSchema(domain.getSchema());
         entity.setExample(domain.getExample());
+        entity.setDescription(domain.getDescription());
         entity.setCreateTime(domain.getCreateTime());
         entity.setUpdateTime(domain.getUpdateTime());
         return entity;
@@ -78,6 +79,7 @@ public class ResponseRepositoryImpl implements ResponseRepository {
                 .contentType(entity.getContentType())
                 .schema(entity.getSchema())
                 .example(entity.getExample())
+                .description(entity.getDescription())
                 .createTime(entity.getCreateTime())
                 .updateTime(entity.getUpdateTime())
                 .build();

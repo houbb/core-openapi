@@ -8,16 +8,15 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("openapi_response")
-public class ResponseEntity {
+@TableName("openapi_request_schema")
+public class RequestSchemaEntity {
 
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long apiId;
-    private String statusCode;
     private String contentType;
-    private String schema;
-    private String example;
+    private String schemaJson;
+    private String exampleJson;
     private String description;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

@@ -18,6 +18,7 @@ public class ResponseItemResponse {
     private String contentType;
     private String schema;
     private String example;
+    private String description;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

@@ -23,6 +23,9 @@
         <span>分类: {{ definition.category || '-' }}</span>
         <span>创建时间: {{ definition.createTime }}</span>
       </div>
+      <div style="margin-top: 12px;">
+        <router-link :to="`/definitions/${apiId}/explorer`" class="btn btn-sm btn-accent">🔍 API Explorer</router-link>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -31,6 +34,8 @@
       <div class="tab" :class="{ active: activeTab === 'responses' }" @click="activeTab = 'responses'">响应定义</div>
       <div class="tab" :class="{ active: activeTab === 'versions' }" @click="activeTab = 'versions'">版本管理</div>
       <div class="tab" :class="{ active: activeTab === 'tags' }" @click="activeTab = 'tags'">标签</div>
+      <div class="tab" :class="{ active: activeTab === 'schema' }" @click="activeTab = 'schema'">请求Schema</div>
+      <div class="tab" :class="{ active: activeTab === 'examples' }" @click="activeTab = 'examples'">示例</div>
     </div>
 
     <!-- Parameters Tab -->
@@ -134,6 +139,61 @@
       </div>
     </div>
 
+    <!-- Request Schema Tab -->
+    <div class="card" v-if="activeTab === 'schema'">
+      <div style="margin-bottom: 12px;">
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+          以 <a href="https://json-schema.org/" target="_blank" style="color: var(--accent);">JSON Schema</a> 格式定义请求体结构。留空表示没有请求体。
+        </p>
+      </div>
+      <div class="form-group">
+        <label>Content-Type</label>
+        <input class="form-input" v-model="schemaForm.contentType" placeholder="application/json" />
+      </div>
+      <div class="form-group">
+        <label>描述</label>
+        <input class="form-input" v-model="schemaForm.description" placeholder="请求体说明" />
+      </div>
+      <div class="form-group">
+        <label>JSON Schema *</label>
+        <textarea class="form-textarea" v-model="schemaForm.schemaJson" rows="12"
+          placeholder='{"type":"object","properties":{"name":{"type":"string"},"age":{"type":"integer"}},"required":["name"]}'></textarea>
+      </div>
+      <div class="form-group">
+        <label>示例 JSON</label>
+        <textarea class="form-textarea" v-model="schemaForm.exampleJson" rows="8"
+          placeholder='{"name":"Tom","age":25}'></textarea>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" @click="saveSchema">保存 Schema</button>
+        <button v-if="schemaForm.id" class="btn btn-danger" @click="deleteSchema">删除 Schema</button>
+      </div>
+      <p v-if="schemaMsg" style="margin-top: 8px; font-size: 12px;" :style="{ color: schemaOk ? 'var(--accent)' : '#e74c3c' }">{{ schemaMsg }}</p>
+    </div>
+
+    <!-- Examples Tab -->
+    <div class="card" v-if="activeTab === 'examples'">
+      <div style="margin-bottom: 12px;">
+        <button class="btn btn-sm btn-accent" @click="showExampleForm = true">+ 添加示例</button>
+      </div>
+      <table v-if="examples.length > 0">
+        <thead>
+          <tr><th>类型</th><th>名称</th><th>内容</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="ex in examples" :key="ex.id">
+            <td><span class="badge" :class="ex.type === 'REQUEST' ? 'badge-accent' : 'badge-default'">{{ ex.type }}</span></td>
+            <td>{{ ex.name || '-' }}</td>
+            <td><code style="font-size: 11px;">{{ ex.content?.substring(0, 100) || '-' }}</code></td>
+            <td>
+              <button class="btn btn-sm btn-danger" @click="deleteExampleItem(ex.id)">删除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="empty-state" v-else><p>暂无示例</p></div>
+    </div>
+
     <!-- Parameter Form Dialog -->
     <div class="dialog-overlay" v-if="showParamForm" @click.self="showParamForm = false">
       <div class="dialog">
@@ -217,11 +277,37 @@
         </div>
       </div>
     </div>
+    <!-- Example Form Dialog -->
+    <div class="dialog-overlay" v-if="showExampleForm" @click.self="showExampleForm = false">
+      <div class="dialog">
+        <h2>添加示例</h2>
+        <div class="form-group">
+          <label>类型 *</label>
+          <select class="form-select" v-model="exampleForm.type">
+            <option value="REQUEST">REQUEST</option>
+            <option value="RESPONSE">RESPONSE</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>名称</label>
+          <input class="form-input" v-model="exampleForm.name" placeholder="如：创建用户成功示例" />
+        </div>
+        <div class="form-group">
+          <label>内容 *</label>
+          <textarea class="form-textarea" v-model="exampleForm.content" rows="10"
+            placeholder='{"name":"Tom","age":25}'></textarea>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn" @click="showExampleForm = false">取消</button>
+          <button class="btn btn-primary" @click="submitExample">添加</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   getDefinition, publishDefinition, deprecateDefinition, offlineDefinition,
@@ -229,7 +315,10 @@ import {
   getResponses, createResponse, deleteResponse,
   getVersions, createVersion, activateVersion, deprecateVersion, deleteVersion,
   getDefinitionTags, setDefinitionTags, getTags,
+  getRequestSchema, saveRequestSchema, deleteRequestSchema,
+  getExamples, createExample, deleteExample,
   type DefinitionItem, type ParameterItem, type ResponseItem, type VersionItem, type TagItem,
+  type RequestSchemaItem, type ExampleItem,
 } from '@/api/definitions'
 
 const route = useRoute()
@@ -340,7 +429,55 @@ watch(activeTab, (tab) => {
   if (tab === 'responses') loadResponses()
   if (tab === 'versions') loadVersions()
   if (tab === 'tags') loadTags()
+  if (tab === 'schema') loadSchema()
+  if (tab === 'examples') loadExamples()
 })
 
-import { watch } from 'vue'
+// ---- Request Schema ----
+const schemaForm = ref<Partial<RequestSchemaItem>>({})
+const schemaMsg = ref('')
+const schemaOk = ref(false)
+
+async function loadSchema() {
+  try {
+    const { data } = await getRequestSchema(apiId)
+    schemaForm.value = data || {}
+  } catch {
+    schemaForm.value = {}
+  }
+}
+async function saveSchema() {
+  try {
+    await saveRequestSchema(apiId, schemaForm.value)
+    schemaMsg.value = 'Schema 保存成功'; schemaOk.value = true
+    loadSchema()
+  } catch {
+    schemaMsg.value = '保存失败'; schemaOk.value = false
+  }
+}
+async function deleteSchema() {
+  await deleteRequestSchema(apiId)
+  schemaForm.value = {}; schemaMsg.value = 'Schema 已删除'; schemaOk.value = true
+}
+
+// ---- Examples ----
+const examples = ref<ExampleItem[]>([])
+const showExampleForm = ref(false)
+const exampleForm = ref<Partial<ExampleItem>>({})
+
+async function loadExamples() {
+  try {
+    const { data } = await getExamples(apiId)
+    examples.value = data
+  } catch {
+    examples.value = []
+  }
+}
+async function submitExample() {
+  await createExample(apiId, exampleForm.value)
+  showExampleForm.value = false; exampleForm.value = {}; loadExamples()
+}
+async function deleteExampleItem(id: number) {
+  await deleteExample(apiId, id); loadExamples()
+}
 </script>

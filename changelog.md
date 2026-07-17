@@ -1,5 +1,69 @@
 # Changelog
 
+## [0.3.0] — 2026-07-17
+
+### Phase 2：API Definition Runtime
+
+**目标**：深化 API 描述能力，让 API 变成机器可理解、开发者可直接使用的标准能力描述（JSON Schema + 示例 + 自动文档 + 请求校验）。
+
+#### 数据库变更 (V3__definition.sql)
+
+**新建表 (2 张)**
+- `openapi_request_schema` — 请求体 JSON Schema 存储（api_id 唯一约束，支持 schema_json + example_json）
+- `openapi_example` — 请求/响应示例（支持 REQUEST/RESPONSE 类型）
+
+**扩展已有表**
+- `openapi_response` 新增 `description` 字段
+
+#### 后端 (Spring Boot 3.2 + MyBatis-Plus)
+
+**Request Schema 管理**
+- `RequestSchemaController` — `/api/v1/openapi/definitions/{apiId}/request-schema` (GET/PUT/DELETE)
+- `RequestSchemaApplicationService` — upsert 模式：已有则更新，无则创建
+- 完整六边形架构：domain → command → port → entity → mapper → repository → service → controller
+
+**Example 管理**
+- `ExampleController` — `/api/v1/openapi/definitions/{apiId}/examples` (GET/POST/PUT/DELETE)
+- `ExampleApplicationService` — 标准 CRUD，支持 REQUEST/RESPONSE 类型
+
+**自动文档（动态生成，无存储）**
+- `DocumentationController` — `/api/v1/openapi/definitions/{apiId}/docs`、`/docs`、`/services/{serviceId}/docs`
+- `DocumentationApplicationService` — 聚合 definition + parameters + requestSchema + responses + examples + tags，动态生成完整 API 文档
+
+**Gateway 请求校验**
+- `RequestValidator` — 在 GatewayFilter 管道中插入校验步骤（路由匹配后、转发前）
+- 校验能力：必填参数检查 + 请求体 JSON Schema 校验（基于 `com.networknt:json-schema-validator`）
+- `GatewayException` 新增 detail message 构造器，校验失败返回详细错误信息
+
+**已有模块增强**
+- `openapi_response` 全链路支持 `description` 字段（domain → entity → repository → service → controller → DTO）
+
+#### 前端 (Vue3 + TypeScript)
+
+**新增页面**
+- `ApiExplorerPage.vue` — API Explorer（路由：`/definitions/:id/explorer`）
+  - 聚合展示：基本信息 + 标签 + 参数分组（按 PATH/QUERY/HEADER/BODY） + 请求体 Schema + 响应定义 + 示例
+  - JSON 自动格式化显示
+  - 从 DefinitionDetailPage 一键跳转
+
+**DefinitionDetailPage 增强**
+- 新增 "请求Schema" Tab — JSON Schema 编辑（textarea + 格式化 + 保存/删除）
+- 新增 "示例" Tab — Example CRUD（添加对话框 + 列表 + 删除）
+- 顶部新增 "API Explorer" 按钮链接
+
+**API 层**
+- `definitions.ts` 新增类型：`RequestSchemaItem`、`ExampleItem`、`ApiDocument`
+- 新增函数：`getRequestSchema`、`saveRequestSchema`、`deleteRequestSchema`、`getExamples`、`createExample`、`updateExample`、`deleteExample`、`getApiDocs`、`getAllDocs`、`getServiceDocs`
+
+**路由**
+- 新增 `/definitions/:id/explorer` → `ApiExplorerPage`
+
+#### 验证结果
+- ✅ 后端编译通过 + 12 个已有测试全部通过
+- ✅ 前端 TypeScript 类型检查通过 + Vite 构建成功
+
+---
+
 ## [0.2.0] — 2026-07-17
 
 ### Phase 1：API Gateway Runtime

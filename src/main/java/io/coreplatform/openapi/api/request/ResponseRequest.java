@@ -12,4 +12,5 @@ public class ResponseRequest {
     private String contentType;
     private String schema;
     private String example;
+    private String description;
 }

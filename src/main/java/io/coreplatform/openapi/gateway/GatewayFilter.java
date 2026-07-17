@@ -23,6 +23,7 @@ public class GatewayFilter extends OncePerRequestFilter {
 
     private final RequestRouter requestRouter;
     private final RequestProxy requestProxy;
+    private final RequestValidator requestValidator;
     private final AccessLogRepository accessLogRepository;
     private final ObjectMapper objectMapper;
 
@@ -71,6 +72,16 @@ public class GatewayFilter extends OncePerRequestFilter {
 
             // 2. Match route
             matchedRoute = requestRouter.resolve(backendPath, httpMethod);
+
+            // 2.5 Validate request against stored schemas
+            if (matchedRoute.route().getApiId() != null) {
+                java.util.List<String> validationErrors = requestValidator.validate(matchedRoute.route().getApiId(), request);
+                if (!validationErrors.isEmpty()) {
+                    String detail = String.join("; ", validationErrors);
+                    throw new GatewayException(GatewayErrorCode.INVALID_REQUEST,
+                            "请求参数校验失败: " + detail);
+                }
+            }
 
             // 3. Forward to backend
             RequestProxy.ProxyResult proxyResult = requestProxy.forward(

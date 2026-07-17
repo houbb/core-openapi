@@ -37,6 +37,7 @@ public class ResponseController {
         command.setContentType(request.getContentType());
         command.setSchema(request.getSchema());
         command.setExample(request.getExample());
+        command.setDescription(request.getDescription());
 
         ApiResponse response = responseApplicationService.createResponse(command);
         return toResponse(response);
@@ -70,6 +71,7 @@ public class ResponseController {
                 .contentType(response.getContentType())
                 .schema(response.getSchema())
                 .example(response.getExample())
+                .description(response.getDescription())
                 .createTime(response.getCreateTime())
                 .updateTime(response.getUpdateTime())
                 .build();

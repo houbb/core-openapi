@@ -33,6 +33,44 @@ export interface ResponseItem {
   contentType: string
   schema: string
   example: string
+  description: string
+}
+
+export interface RequestSchemaItem {
+  id: number
+  apiId: number
+  contentType: string
+  schemaJson: string
+  exampleJson: string
+  description: string
+  createTime: string
+  updateTime: string
+}
+
+export interface ExampleItem {
+  id: number
+  apiId: number
+  type: 'REQUEST' | 'RESPONSE'
+  name: string
+  content: string
+  createTime: string
+  updateTime: string
+}
+
+export interface ApiDocument {
+  id: number
+  name: string
+  path: string
+  httpMethod: string
+  description: string
+  category: string
+  status: string
+  service: { id: number; name: string; code: string } | null
+  parameters: Record<string, Array<{ id: number; name: string; type: string; required: boolean; description: string; example: string }>>
+  requestSchema: { contentType: string; schemaJson: string; exampleJson: string; description: string } | null
+  responses: Array<{ statusCode: string; contentType: string; schema: string; example: string; description: string }>
+  examples: Array<{ id: number; type: string; name: string; content: string }>
+  tags: Array<{ id: number; name: string; color: string }>
 }
 
 export interface VersionItem {
@@ -186,4 +224,47 @@ export function updateTag(id: number, data: { name: string; color?: string }) {
 
 export function deleteTag(id: number) {
   return apiClient.delete(`/tags/${id}`)
+}
+
+// Request Schema
+export function getRequestSchema(apiId: number) {
+  return apiClient.get<RequestSchemaItem>(`/definitions/${apiId}/request-schema`)
+}
+
+export function saveRequestSchema(apiId: number, data: Partial<RequestSchemaItem>) {
+  return apiClient.put<RequestSchemaItem>(`/definitions/${apiId}/request-schema`, data)
+}
+
+export function deleteRequestSchema(apiId: number) {
+  return apiClient.delete(`/definitions/${apiId}/request-schema`)
+}
+
+// Examples
+export function getExamples(apiId: number) {
+  return apiClient.get<ExampleItem[]>(`/definitions/${apiId}/examples`)
+}
+
+export function createExample(apiId: number, data: Partial<ExampleItem>) {
+  return apiClient.post<ExampleItem>(`/definitions/${apiId}/examples`, data)
+}
+
+export function updateExample(apiId: number, id: number, data: Partial<ExampleItem>) {
+  return apiClient.put<ExampleItem>(`/definitions/${apiId}/examples/${id}`, data)
+}
+
+export function deleteExample(apiId: number, id: number) {
+  return apiClient.delete(`/definitions/${apiId}/examples/${id}`)
+}
+
+// Documentation
+export function getApiDocs(apiId: number) {
+  return apiClient.get<ApiDocument>(`/definitions/${apiId}/docs`)
+}
+
+export function getAllDocs() {
+  return apiClient.get<ApiDocument[]>('/docs')
+}
+
+export function getServiceDocs(serviceId: number) {
+  return apiClient.get<ApiDocument[]>(`/services/${serviceId}/docs`)
 }

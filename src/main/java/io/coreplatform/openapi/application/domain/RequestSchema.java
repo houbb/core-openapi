@@ -11,13 +11,12 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ApiResponse {
+public class RequestSchema {
     private Long id;
     private Long apiId;
-    private String statusCode;
     private String contentType;
-    private String schema;
-    private String example;
+    private String schemaJson;
+    private String exampleJson;
     private String description;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

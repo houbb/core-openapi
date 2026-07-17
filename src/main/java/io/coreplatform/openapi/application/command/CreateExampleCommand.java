@@ -5,16 +5,14 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class CreateResponseCommand {
+public class CreateExampleCommand {
 
     @NotNull(message = "接口ID不能为空")
     private Long apiId;
 
-    @NotBlank(message = "HTTP状态码不能为空")
-    private String statusCode;
+    @NotBlank(message = "示例类型不能为空")
+    private String type;      // REQUEST | RESPONSE
 
-    private String contentType;
-    private String schema;
-    private String example;
-    private String description;
+    private String name;
+    private String content;
 }

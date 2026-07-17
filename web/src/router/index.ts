@@ -38,6 +38,12 @@ const routes = [
         meta: { title: 'API 详情' },
       },
       {
+        path: 'definitions/:id/explorer',
+        name: 'ApiExplorer',
+        component: () => import('@/pages/definitions/ApiExplorerPage.vue'),
+        meta: { title: 'API 详情' },
+      },
+      {
         path: 'tags',
         name: 'TagManagement',
         component: () => import('@/pages/tags/TagManagementPage.vue'),
