@@ -53,3 +53,13 @@ core-openapi:
         enabled: true
         max-requests: 1000
         window-seconds: 60
+
+  # Rate Limit config (Phase 6)
+  rate-limit:
+    enabled: true
+    default-policy:
+      limit-value: 100
+      refill-rate: 10
+      refill-period: 1
+    cleanup-interval-seconds: 60
+    bucket-ttl-seconds: 300

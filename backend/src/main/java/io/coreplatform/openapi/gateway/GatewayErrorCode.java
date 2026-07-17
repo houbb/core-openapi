@@ -13,6 +13,7 @@ public enum GatewayErrorCode {
     TENANT_REQUIRED(40302, "缺少租户信息"),
     IP_NOT_ALLOWED(40303, "IP不在白名单中"),
     TIME_NOT_ALLOWED(40304, "当前时间不在允许访问时间段内"),
+    RATE_LIMIT_EXCEEDED(42900, "请求频率超过限制"),
     RISK_BLOCKED(42901, "触发风控规则，请求被拦截"),
     SERVICE_UNAVAILABLE(50001, "后端服务不可用"),
     SERVICE_TIMEOUT(50002, "后端服务超时"),

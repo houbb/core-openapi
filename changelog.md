@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.7.0] — 2026-07-17
+
+### Phase 6：Rate Limit Runtime
+
+**目标**：构建流量治理层，实现 Token Bucket 限流、策略管理、配额统计，保证开放平台在大量调用下稳定运行。
+
+#### 数据库变更 (V7__rate_limit.sql)
+
+**新建表 (2 张)**
+- `rate_limit_policy` — 限流策略（name, scope, scope_id, algorithm, limit_value, refill_rate, refill_period）
+- `rate_limit_usage` — 用量记录（policy_id, api_id, application_id, identity_id, request_count, blocked_count）
+
+#### 后端 — Rate Limit Runtime
+
+**核心限流**
+- `RateLimitStore` 接口 — 存储抽象，为未来 Redis 预留
+- `MemoryRateLimitStore` — 基于 ConcurrentHashMap 的 Token Bucket 实现，含定时清理
+- `RateLimitService` — 限流检查入口（策略优先级：Application 级 > API 级 > 默认配置）
+- `TokenBucketState` / `RateLimitResult` — 限流结果模型，含 `X-RateLimit-*` 响应头数据
+
+**策略管理**
+- `RateLimitPolicyApplicationService` — 策略 CRUD + 启用/禁用
+- `RateLimitPolicyRepository` + `RateLimitPolicyRepositoryImpl` — 策略持久化
+
+**GatewayFilter 集成**
+- 步骤 7 从 RiskControlService 切换为 RateLimitService
+- 响应增加 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` 头
+- 新增 `RATE_LIMIT_EXCEEDED(42900)` 错误码
+
+**配置**
+- `RateLimitProperties` — `@ConfigurationProperties(prefix="core-openapi.rate-limit")`
+- `application.yml` 新增 `core-openapi.rate-limit` 配置段
+
+**REST API (新增)**
+- 策略 CRUD：`GET/POST/PUT/DELETE /api/v1/openapi/rate-limit/policies`
+- 策略禁用：`POST /api/v1/openapi/rate-limit/policies/{id}/disable`
+
+**暂缓**: Redis 分布式限流、并发槽位控制、优先级调度、AI Cost Governor（后续 Level 2-4）
+
+---
+
 ## [0.6.0] — 2026-07-17
 
 ### Phase 5：Security Runtime
