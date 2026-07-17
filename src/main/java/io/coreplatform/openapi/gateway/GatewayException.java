@@ -32,6 +32,8 @@ public class GatewayException extends BusinessException {
         return switch (errorCode) {
             case ROUTE_NOT_FOUND -> 404;
             case INVALID_REQUEST -> 400;
+            case INVALID_API_KEY, API_KEY_EXPIRED, API_KEY_DISABLED -> 401;
+            case PERMISSION_DENIED -> 403;
             case SERVICE_UNAVAILABLE, SERVICE_TIMEOUT, BACKEND_ERROR -> 502;
             case GATEWAY_INTERNAL_ERROR -> 500;
             default -> 500;

@@ -1,5 +1,79 @@
 # Changelog
 
+## [0.4.0] — 2026-07-17
+
+### Phase 3：API Key Runtime
+
+**目标**：构建 API Key 认证体系，识别调用者身份，实现应用管理 + API Key 生命周期 + 权限绑定 + 网关认证 + 使用审计。
+
+#### 数据库变更 (V4__apikey.sql)
+
+**新建表 (6 张)**
+- `openapi_user` — 开发者/用户（username, email, status）
+- `openapi_application` — 应用（app_name, app_code, owner_id → openapi_user）
+- `openapi_api_key` — API Key（key_prefix + SHA-256 key_hash，绝不存储明文）
+- `api_permission` — 权限定义（如 ai.chat, storage.read）
+- `application_permission` — 应用-权限多对多关联
+- `api_key_usage_log` — Key 使用审计日志
+
+#### 后端 (Spring Boot 3.2 + MyBatis-Plus)
+
+**用户管理**
+- `UserController` — `/api/v1/openapi/users` (CRUD)
+- 完整六边形架构：domain → command → port → entity → mapper → repository → service → controller
+
+**应用管理**
+- `ApplicationController` — `/api/v1/openapi/applications` (CRUD + Keys + Permissions)
+- 子资源：`/{id}/keys` (生成/禁用/启用/删除) + `/{id}/permissions` (授予/撤销)
+- 生成 API Key 时返回原始 Key（仅此一次），后续仅显示前缀
+
+**权限管理**
+- `PermissionController` — `/api/v1/openapi/permissions` (CRUD)
+- 种子数据：ai.chat, ai.embedding, storage.read, storage.upload, user.read
+
+**Key 加密**
+- `KeyGenerator` (`infrastructure/crypto/`) — SecureRandom 32字节 → base64url 密钥；SHA-256 哈希存储
+- Key 格式：`sk_live_` 或 `sk_test_` + 43字符随机串
+
+**Gateway 认证集成**
+- `KeyValidator` — 在 GatewayFilter 中插入认证步骤（路由匹配后、请求校验前）
+  - 提取 `Authorization: Bearer <key>` 头
+  - 哈希查找，校验状态（ACTIVE/未过期/父应用有效）
+  - 权限检查（基于 API definition 的 category 字段）
+  - 更新 last_used_time，写使用日志
+- `GatewayErrorCode` 新增：`INVALID_API_KEY(40101)`, `API_KEY_EXPIRED(40102)`, `API_KEY_DISABLED(40103)`, `PERMISSION_DENIED(40301)`
+- `GatewayFilter` 管道新增 auth 步骤
+- `GatewayException.mapToHttpStatus` 支持 401/403
+
+**Dashboard 增强**
+- 新增统计：userCount, applicationCount, activeKeyCount
+
+#### 前端 (Vue3 + TypeScript)
+
+**新增页面**
+- `UserListPage.vue` — 用户 CRUD（路由：`/users`）
+- `ApplicationListPage.vue` — 应用 CRUD（路由：`/applications`）
+  - 创建/编辑对话框
+- `ApplicationDetailPage.vue` — 应用详情 + API Keys + 权限管理（路由：`/applications/:id`）
+  - Key 管理：生成（选择环境/名称/过期时间）、禁用/启用/删除
+  - Key 生成后弹窗显示原始 Key（⚠️ 仅显示一次，支持一键复制）
+  - 权限管理：授予/撤销
+- `DashboardPage.vue` — 新增用户、应用、活跃 Key 统计卡片
+
+**API 层**
+- `web/src/api/apikey.ts` — 所有新 API 类型和函数（Users, Applications, API Keys, Permissions, Dashboard）
+
+**路由 & 导航**
+- 新增路由：`/users`, `/applications`, `/applications/:id`
+- 侧边栏新增：👤 用户管理、📱 应用管理
+
+#### 验证结果
+- ✅ 后端编译通过 + 12 个已有测试全部通过
+- ✅ 前端 TypeScript 类型检查通过 + Vite 构建成功
+- ✅ 测试 schema.sql 补齐 Phase 1/2/3 全部表
+
+---
+
 ## [0.3.0] — 2026-07-17
 
 ### Phase 2：API Definition Runtime

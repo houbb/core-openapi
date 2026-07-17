@@ -49,6 +49,24 @@ const routes = [
         component: () => import('@/pages/tags/TagManagementPage.vue'),
         meta: { title: '标签管理' },
       },
+      {
+        path: 'users',
+        name: 'UserList',
+        component: () => import('@/pages/users/UserListPage.vue'),
+        meta: { title: '用户管理' },
+      },
+      {
+        path: 'applications',
+        name: 'ApplicationList',
+        component: () => import('@/pages/applications/ApplicationListPage.vue'),
+        meta: { title: '应用管理' },
+      },
+      {
+        path: 'applications/:id',
+        name: 'ApplicationDetail',
+        component: () => import('@/pages/applications/ApplicationDetailPage.vue'),
+        meta: { title: '应用详情' },
+      },
     ],
   },
 ]

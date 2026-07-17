@@ -2,7 +2,9 @@ package io.coreplatform.openapi.gateway;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.coreplatform.openapi.application.domain.AccessLog;
+import io.coreplatform.openapi.application.domain.ApiKeyUsageLog;
 import io.coreplatform.openapi.application.port.AccessLogRepository;
+import io.coreplatform.openapi.application.port.ApiKeyUsageLogRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +26,9 @@ public class GatewayFilter extends OncePerRequestFilter {
     private final RequestRouter requestRouter;
     private final RequestProxy requestProxy;
     private final RequestValidator requestValidator;
+    private final KeyValidator keyValidator;
     private final AccessLogRepository accessLogRepository;
+    private final ApiKeyUsageLogRepository apiKeyUsageLogRepository;
     private final ObjectMapper objectMapper;
 
     private static final String GATEWAY_PREFIX = "/gateway";
@@ -72,6 +76,24 @@ public class GatewayFilter extends OncePerRequestFilter {
 
             // 2. Match route
             matchedRoute = requestRouter.resolve(backendPath, httpMethod);
+
+            // 2.1 Authenticate via API Key
+            KeyValidator.AuthResult authResult = null;
+            try {
+                authResult = keyValidator.validate(request, matchedRoute);
+                ctx.setClientId(authResult.application().getAppCode());
+                ctx.setUserId(authResult.application().getOwnerId() != null
+                        ? authResult.application().getOwnerId().toString() : null);
+                log.debug("Auth success: app={}, keyId={}", authResult.application().getAppCode(), authResult.apiKey().getId());
+            } catch (GatewayException e) {
+                // Write usage log for failed auth if we have the key info
+                if (authResult != null) {
+                    writeUsageLog(authResult.apiKey().getId(),
+                            matchedRoute != null ? matchedRoute.route().getApiId() : null,
+                            requestId, getClientIp(request), "FAILED");
+                }
+                throw e;
+            }
 
             // 2.5 Validate request against stored schemas
             if (matchedRoute.route().getApiId() != null) {
@@ -148,6 +170,15 @@ public class GatewayFilter extends OncePerRequestFilter {
                 log.error("Failed to write access log: requestId={}", requestId, logEx);
             }
 
+            // 6.1 Write API key usage log
+            try {
+                if (ctx != null && ctx.getClientId() != null && matchedRoute != null) {
+                    writeUsageLogForSuccess(ctx, matchedRoute, requestId);
+                }
+            } catch (Exception logEx) {
+                log.error("Failed to write API key usage log: requestId={}", requestId, logEx);
+            }
+
             // Cleanup
             RequestContextHolder.clear();
         }
@@ -187,9 +218,51 @@ public class GatewayFilter extends OncePerRequestFilter {
         return switch (errorCode) {
             case ROUTE_NOT_FOUND -> HttpServletResponse.SC_NOT_FOUND;
             case INVALID_REQUEST -> HttpServletResponse.SC_BAD_REQUEST;
+            case INVALID_API_KEY, API_KEY_EXPIRED, API_KEY_DISABLED -> HttpServletResponse.SC_UNAUTHORIZED;
+            case PERMISSION_DENIED -> HttpServletResponse.SC_FORBIDDEN;
             case SERVICE_UNAVAILABLE, SERVICE_TIMEOUT, BACKEND_ERROR -> HttpServletResponse.SC_BAD_GATEWAY;
             case GATEWAY_INTERNAL_ERROR -> HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
             default -> HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         };
+    }
+
+    private void writeUsageLog(Long apiKeyId, Long apiId, String requestId, String ip, String status) {
+        try {
+            ApiKeyUsageLog log = ApiKeyUsageLog.builder()
+                    .apiKeyId(apiKeyId)
+                    .apiId(apiId)
+                    .requestId(requestId)
+                    .ip(ip != null ? ip : "")
+                    .timestamp(LocalDateTime.now())
+                    .status(status)
+                    .build();
+            apiKeyUsageLogRepository.save(log);
+        } catch (Exception e) {
+            // Swallow — usage log failure should never break the gateway
+        }
+    }
+
+    private void writeUsageLogForSuccess(RequestContext ctx, RequestRouter.RouteResult matchedRoute, String requestId) {
+        try {
+            ApiKeyUsageLog log = ApiKeyUsageLog.builder()
+                    .apiKeyId(null) // We don't have direct key ID here
+                    .apiId(matchedRoute != null ? matchedRoute.route().getApiId() : null)
+                    .requestId(requestId)
+                    .ip("")
+                    .timestamp(LocalDateTime.now())
+                    .status("SUCCESS")
+                    .build();
+            apiKeyUsageLogRepository.save(log);
+        } catch (Exception e) {
+            // Swallow
+        }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

@@ -19,6 +19,14 @@
           <span class="nav-icon">🏷️</span>
           <span>标签管理</span>
         </router-link>
+        <router-link to="/users" class="nav-item" active-class="active">
+          <span class="nav-icon">👤</span>
+          <span>用户管理</span>
+        </router-link>
+        <router-link to="/applications" class="nav-item" active-class="active">
+          <span class="nav-icon">📱</span>
+          <span>应用管理</span>
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <span class="version">v1.0.0</span>
