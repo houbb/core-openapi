@@ -1,5 +1,90 @@
 # Changelog
 
+## [0.6.0] — 2026-07-17
+
+### Phase 5：Security Runtime
+
+**目标**：构建企业级开放平台安全内核 —— 身份认证、RBAC 权限控制、安全策略、审计日志、租户隔离、风控告警。
+
+#### 用户决策
+- 认证方式：API Key + JWT 双模式
+- 权限模型：RBAC（Application → Role → Permission）
+- 租户隔离：MVP 阶段加入
+- 请求签名：延后
+
+#### 数据库变更 (V6__security.sql)
+
+**扩展已有表 (3 张)**
+- `openapi_user`、`openapi_application`、`openapi_api_key` 新增 `tenant_id` 字段
+
+**新建表 (6 张)**
+- `security_role` — 角色定义（name, description, tenant_id），种子数据 ADMIN / AI_USER / READ_ONLY
+- `role_permission` — 角色-权限多对多关联
+- `application_role` — 应用-角色多对多关联
+- `api_security_policy` — API 安全策略（required_permission, auth_required, ip_white_list, time_limit, tenant_check）
+- `security_audit_log` — 安全审计日志（AUTH_SUCCESS / AUTH_FAILURE / PERMISSION_DENIED / POLICY_DENIED / RISK_ALERT）
+- `security_risk_event` — 风控事件（RATE_ANOMALY）
+
+#### 后端 — Security Runtime
+
+**认证 (AuthenticationService + JwtAuthenticator)**
+- `AuthenticationService` — 统一认证入口，自动识别 API Key / JWT 并分发
+- `JwtAuthenticator` — JWT 解析验证，支持 `jjwt 0.12.5`，提取 subject / applicationId / permissions / tenantId
+- `KeyValidator` — 重构：移除内联权限检查，聚焦 API Key 提取/哈希/状态校验
+
+**授权 (AuthorizationService)**
+- RBAC 引擎：Application → Role → Permission，解析有效权限集合
+- 支持 wildcard 权限 `*` 和 `admin.all` 管理员权限
+- 兼容旧版 `application_permission` 扁平映射（降级策略）
+
+**安全策略 (SecurityPolicyService)**
+- IP 白名单校验、时间窗口限制、租户隔离检查
+- `ApiSecurityPolicy` 绑定 API ID → 策略规则（requiredPermission / ipWhiteList / timeLimit / tenantCheck）
+
+**租户隔离 (TenantContext)**
+- 请求上下文中注入 `tenantId`，从认证令牌或 `X-Tenant-Id` 头解析
+- 策略启用 `tenant_check` 时强制校验，缺少租户返回 `TENANT_REQUIRED(40302)`
+
+**审计日志 (SecurityAuditService)**
+- `@Async` 异步写入，不阻塞网关响应
+- 覆盖事件：AUTH_SUCCESS、AUTH_FAILURE、PERMISSION_DENIED、POLICY_DENIED、RISK_ALERT
+
+**风控 (RiskControlService)**
+- 基于 `ConcurrentHashMap` 滑动窗口的请求频率检测
+- 可配置：`max-requests` / `window-seconds`
+- 超标触发 `RISK_BLOCKED(42901)` 并写入 `security_risk_event`
+
+**管理 API (3 个新 Controller)**
+- `SecurityRoleController` — `/api/v1/openapi/security/roles` — 角色 CRUD + 权限分配 + 应用角色绑定
+- `SecurityPolicyController` — `/api/v1/openapi/security/policies` — 安全策略 CRUD
+- `SecurityAuditController` — `/api/v1/openapi/security/audit-logs` — 审计日志查询 + 风控事件 + 统计
+
+**Gateway 管道重构**
+- `GatewayFilter` 新管道：路由匹配 → 认证 → 加载安全策略 → 策略检查 → RBAC 授权 → 风控 → 参数校验 → 转发 → 审计日志
+- `GatewayErrorCode` 新增：`INVALID_JWT(40104)`, `JWT_EXPIRED(40105)`, `TENANT_REQUIRED(40302)`, `IP_NOT_ALLOWED(40303)`, `TIME_NOT_ALLOWED(40304)`, `RISK_BLOCKED(42901)`
+- `RequestContext` 新增 `authType` 和 `permissions` 字段
+
+**配置**
+- `application.yml` 新增 `core-openapi.security.jwt` 和 `risk-control.rate-limit`
+- `pom.xml` 新增 `jjwt-api/impl/jackson 0.12.5`
+
+**架构**
+- 新包 `io.coreplatform.openapi.security` — 安全运行时独立模块
+- 完整六边形架构：domain → port → entity → mapper → repository → service → controller
+- 新增 45 个文件（6 entity + 8 domain + 6 mapper + 6 port + 6 repo impl + 7 runtime service + 3 app service + 3 controller + 12 DTO/command + 1 config + 1 SQL）
+
+#### 验证结果
+- ✅ 后端编译通过 (mvn compile)
+- ⬜ API Key 认证回归
+- ⬜ JWT 认证流程
+- ⬜ RBAC 权限校验
+- ⬜ IP 白名单策略
+- ⬜ 时间窗口策略
+- ⬜ 租户隔离
+- ⬜ 风控限流触发
+
+---
+
 ## [0.5.0] — 2026-07-17
 
 ### Phase 4：SDK Runtime + 目录重组

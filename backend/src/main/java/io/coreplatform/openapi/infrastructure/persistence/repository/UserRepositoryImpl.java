@@ -86,6 +86,7 @@ public class UserRepositoryImpl implements UserRepository {
         entity.setUsername(domain.getUsername());
         entity.setEmail(domain.getEmail());
         entity.setStatus(domain.getStatus());
+        entity.setTenantId(domain.getTenantId());
         entity.setCreateTime(domain.getCreateTime());
         entity.setUpdateTime(domain.getUpdateTime());
         return entity;
@@ -97,6 +98,7 @@ public class UserRepositoryImpl implements UserRepository {
                 .username(entity.getUsername())
                 .email(entity.getEmail())
                 .status(entity.getStatus())
+                .tenantId(entity.getTenantId())
                 .createTime(entity.getCreateTime())
                 .updateTime(entity.getUpdateTime())
                 .build();

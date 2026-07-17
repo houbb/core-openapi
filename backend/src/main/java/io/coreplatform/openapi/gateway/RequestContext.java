@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -17,5 +18,7 @@ public class RequestContext {
     private String clientId;
     private String userId;
     private String tenantId;
+    private String authType;
+    private List<String> permissions;
     private LocalDateTime timestamp;
 }

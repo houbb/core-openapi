@@ -2,12 +2,8 @@ package io.coreplatform.openapi.gateway;
 
 import io.coreplatform.openapi.application.domain.ApiKey;
 import io.coreplatform.openapi.application.domain.Application;
-import io.coreplatform.openapi.application.domain.ApplicationPermission;
-import io.coreplatform.openapi.application.domain.Permission;
 import io.coreplatform.openapi.application.port.ApiKeyRepository;
-import io.coreplatform.openapi.application.port.ApplicationPermissionRepository;
 import io.coreplatform.openapi.application.port.ApplicationRepository;
-import io.coreplatform.openapi.application.port.PermissionRepository;
 import io.coreplatform.openapi.infrastructure.crypto.KeyGenerator;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -25,8 +20,6 @@ public class KeyValidator {
 
     private final ApiKeyRepository apiKeyRepository;
     private final ApplicationRepository applicationRepository;
-    private final ApplicationPermissionRepository applicationPermissionRepository;
-    private final PermissionRepository permissionRepository;
     private final KeyGenerator keyGenerator;
 
     private static final String AUTH_HEADER = "Authorization";
@@ -89,18 +82,7 @@ public class KeyValidator {
             throw new GatewayException(GatewayErrorCode.INVALID_API_KEY, "应用已被禁用");
         }
 
-        // 6. Check permissions if we have a matched route
-        if (matchedRoute != null && matchedRoute.definition() != null) {
-            boolean hasPermission = checkPermission(application.getId(), matchedRoute.definition().getCategory());
-            if (!hasPermission) {
-                log.warn("Application {} denied access to API {} (category: {})",
-                        application.getAppCode(), matchedRoute.definition().getName(),
-                        matchedRoute.definition().getCategory());
-                throw new GatewayException(GatewayErrorCode.PERMISSION_DENIED);
-            }
-        }
-
-        // 7. Update last used time (fire-and-forget, best-effort)
+        // 6. Update last used time (fire-and-forget, best-effort)
         try {
             apiKey.setLastUsedTime(LocalDateTime.now());
             apiKeyRepository.save(apiKey);
@@ -109,28 +91,6 @@ public class KeyValidator {
         }
 
         return new AuthResult(apiKey, application);
-    }
-
-    /**
-     * Check if the application has permission for the given API category.
-     * Also supports wildcard permission "*" which grants access to all APIs.
-     */
-    private boolean checkPermission(Long applicationId, String category) {
-        if (category == null || category.isBlank()) {
-            return true; // No category restriction — allow
-        }
-
-        List<ApplicationPermission> appPerms = applicationPermissionRepository.findByApplicationId(applicationId);
-        for (ApplicationPermission ap : appPerms) {
-            Optional<Permission> perm = permissionRepository.findById(ap.getPermissionId());
-            if (perm.isPresent()) {
-                String permName = perm.get().getName();
-                if ("*".equals(permName) || permName.equalsIgnoreCase(category)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     /**

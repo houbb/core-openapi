@@ -41,3 +41,15 @@ gateway:
 app:
   sdk:
     output-dir: data/sdk
+
+# Security config
+core-openapi:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:default-jwt-secret-change-in-production-min-32-chars}
+      expiration: 86400000
+    risk-control:
+      rate-limit:
+        enabled: true
+        max-requests: 1000
+        window-seconds: 60

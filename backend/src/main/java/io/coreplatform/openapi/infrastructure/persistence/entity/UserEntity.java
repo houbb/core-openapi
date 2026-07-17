@@ -16,6 +16,7 @@ public class UserEntity {
     private String username;
     private String email;
     private String status;
+    private String tenantId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

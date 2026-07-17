@@ -81,6 +81,7 @@ public class ApiKeyRepositoryImpl implements ApiKeyRepository {
         entity.setExpireTime(domain.getExpireTime());
         entity.setLastUsedTime(domain.getLastUsedTime());
         entity.setCreatedTime(domain.getCreatedTime());
+        entity.setTenantId(domain.getTenantId());
         return entity;
     }
 
@@ -96,6 +97,7 @@ public class ApiKeyRepositoryImpl implements ApiKeyRepository {
                 .expireTime(entity.getExpireTime())
                 .lastUsedTime(entity.getLastUsedTime())
                 .createdTime(entity.getCreatedTime())
+                .tenantId(entity.getTenantId())
                 .build();
     }
 }

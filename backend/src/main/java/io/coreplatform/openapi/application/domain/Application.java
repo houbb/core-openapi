@@ -18,6 +18,7 @@ public class Application {
     private Long ownerId;
     private String description;
     private String status;
+    private String tenantId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

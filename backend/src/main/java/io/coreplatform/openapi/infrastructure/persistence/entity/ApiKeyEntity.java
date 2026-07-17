@@ -22,4 +22,5 @@ public class ApiKeyEntity {
     private LocalDateTime expireTime;
     private LocalDateTime lastUsedTime;
     private LocalDateTime createdTime;
+    private String tenantId;
 }

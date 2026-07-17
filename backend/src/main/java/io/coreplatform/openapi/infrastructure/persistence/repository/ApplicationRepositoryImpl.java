@@ -88,6 +88,7 @@ public class ApplicationRepositoryImpl implements ApplicationRepository {
         entity.setOwnerId(domain.getOwnerId());
         entity.setDescription(domain.getDescription());
         entity.setStatus(domain.getStatus());
+        entity.setTenantId(domain.getTenantId());
         entity.setCreateTime(domain.getCreateTime());
         entity.setUpdateTime(domain.getUpdateTime());
         return entity;
@@ -101,6 +102,7 @@ public class ApplicationRepositoryImpl implements ApplicationRepository {
                 .ownerId(entity.getOwnerId())
                 .description(entity.getDescription())
                 .status(entity.getStatus())
+                .tenantId(entity.getTenantId())
                 .createTime(entity.getCreateTime())
                 .updateTime(entity.getUpdateTime())
                 .build();

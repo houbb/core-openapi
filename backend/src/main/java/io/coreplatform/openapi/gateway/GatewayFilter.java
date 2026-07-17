@@ -5,6 +5,15 @@ import io.coreplatform.openapi.application.domain.AccessLog;
 import io.coreplatform.openapi.application.domain.ApiKeyUsageLog;
 import io.coreplatform.openapi.application.port.AccessLogRepository;
 import io.coreplatform.openapi.application.port.ApiKeyUsageLogRepository;
+import io.coreplatform.openapi.security.domain.ApiSecurityPolicy;
+import io.coreplatform.openapi.security.domain.AuthenticationToken;
+import io.coreplatform.openapi.security.domain.SecurityPolicyDecision;
+import io.coreplatform.openapi.security.port.ApiSecurityPolicyRepository;
+import io.coreplatform.openapi.security.service.AuthenticationService;
+import io.coreplatform.openapi.security.service.AuthorizationService;
+import io.coreplatform.openapi.security.service.RiskControlService;
+import io.coreplatform.openapi.security.service.SecurityAuditService;
+import io.coreplatform.openapi.security.service.SecurityPolicyService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,6 +25,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -26,7 +36,12 @@ public class GatewayFilter extends OncePerRequestFilter {
     private final RequestRouter requestRouter;
     private final RequestProxy requestProxy;
     private final RequestValidator requestValidator;
-    private final KeyValidator keyValidator;
+    private final AuthenticationService authenticationService;
+    private final AuthorizationService authorizationService;
+    private final SecurityPolicyService securityPolicyService;
+    private final SecurityAuditService securityAuditService;
+    private final RiskControlService riskControlService;
+    private final ApiSecurityPolicyRepository apiSecurityPolicyRepository;
     private final AccessLogRepository accessLogRepository;
     private final ApiKeyUsageLogRepository apiKeyUsageLogRepository;
     private final ObjectMapper objectMapper;
@@ -56,8 +71,10 @@ public class GatewayFilter extends OncePerRequestFilter {
         long startTime = System.currentTimeMillis();
         String requestId = UUID.randomUUID().toString();
         String httpMethod = request.getMethod();
+        String clientIp = getClientIp(request);
         RequestContext ctx = null;
         RequestRouter.RouteResult matchedRoute = null;
+        AuthenticationToken authToken = null;
         int responseStatus = 200;
         String errorMessage = null;
 
@@ -67,8 +84,10 @@ public class GatewayFilter extends OncePerRequestFilter {
                     .requestId(requestId)
                     .traceId(requestId)
                     .clientId(getClientId(request))
-                    .userId(null) // Deferred to auth phase
-                    .tenantId(null) // Deferred to auth phase
+                    .userId(null)
+                    .tenantId(null)
+                    .authType(null)
+                    .permissions(null)
                     .timestamp(LocalDateTime.now())
                     .build();
             RequestContextHolder.init(ctx);
@@ -77,27 +96,75 @@ public class GatewayFilter extends OncePerRequestFilter {
             // 2. Match route
             matchedRoute = requestRouter.resolve(backendPath, httpMethod);
 
-            // 2.1 Authenticate via API Key
-            KeyValidator.AuthResult authResult = null;
+            // 3. Authenticate — API Key or JWT
             try {
-                authResult = keyValidator.validate(request, matchedRoute);
-                ctx.setClientId(authResult.application().getAppCode());
-                ctx.setUserId(authResult.application().getOwnerId() != null
-                        ? authResult.application().getOwnerId().toString() : null);
-                log.debug("Auth success: app={}, keyId={}", authResult.application().getAppCode(), authResult.apiKey().getId());
+                authToken = authenticationService.authenticate(request, matchedRoute);
+                ctx.setClientId(authToken.getPrincipal());
+                ctx.setUserId(authToken.getUserId() != null ? authToken.getUserId().toString() : null);
+                ctx.setTenantId(authToken.getTenantId());
+                ctx.setAuthType(authToken.getTokenType());
+                ctx.setPermissions(authToken.getPermissions());
+                log.debug("Auth success: type={}, principal={}, tenant={}",
+                        authToken.getTokenType(), authToken.getPrincipal(), authToken.getTenantId());
+
+                // Audit: auth success
+                securityAuditService.recordAuthSuccess(
+                        authToken.getTokenType(), authToken.getPrincipal(),
+                        clientIp, requestId, authToken.getTenantId());
+
             } catch (GatewayException e) {
-                // Write usage log for failed auth if we have the key info
-                if (authResult != null) {
-                    writeUsageLog(authResult.apiKey().getId(),
-                            matchedRoute != null ? matchedRoute.route().getApiId() : null,
-                            requestId, getClientIp(request), "FAILED");
-                }
+                // Audit: auth failure
+                securityAuditService.recordAuthFailure(
+                        "UNKNOWN", "unknown",
+                        e.getMessage(), clientIp, requestId, "");
                 throw e;
             }
 
-            // 2.5 Validate request against stored schemas
-            if (matchedRoute.route().getApiId() != null) {
-                java.util.List<String> validationErrors = requestValidator.validate(matchedRoute.route().getApiId(), request);
+            // 4. Load security policy for this API
+            ApiSecurityPolicy policy = null;
+            if (matchedRoute != null && matchedRoute.route().getApiId() != null) {
+                Optional<ApiSecurityPolicy> policyOpt =
+                        apiSecurityPolicyRepository.findByApiId(matchedRoute.route().getApiId());
+                policy = policyOpt.orElse(null);
+            }
+
+            // 5. Evaluate security policy (IP, time, tenant checks)
+            if (policy != null) {
+                SecurityPolicyDecision decision = securityPolicyService.evaluate(policy, request);
+                if (!decision.isAllowed()) {
+                    securityAuditService.recordPolicyDenied(
+                            authToken.getTokenType(), authToken.getPrincipal(),
+                            decision.getReason(), clientIp, requestId, authToken.getTenantId());
+                    throw new GatewayException(GatewayErrorCode.PERMISSION_DENIED, decision.getReason());
+                }
+
+                // 6. Authorize — RBAC permission check
+                if (decision.getRequiredPermission() != null && !decision.getRequiredPermission().isBlank()) {
+                    boolean authorized = authorizationService.authorize(authToken, decision.getRequiredPermission());
+                    if (!authorized) {
+                        securityAuditService.recordPermissionDenied(
+                                authToken.getTokenType(), authToken.getPrincipal(),
+                                decision.getRequiredPermission(), clientIp, requestId, authToken.getTenantId());
+                        throw new GatewayException(GatewayErrorCode.PERMISSION_DENIED,
+                                "缺少权限: " + decision.getRequiredPermission());
+                    }
+                }
+            }
+
+            // 7. Risk check — rate anomaly detection
+            try {
+                riskControlService.check(authToken.getPrincipal(), clientIp, authToken.getTenantId());
+            } catch (RiskControlService.RateLimitExceededException e) {
+                securityAuditService.recordRiskAlert(
+                        authToken.getPrincipal(), e.getMessage(),
+                        clientIp, requestId, authToken.getTenantId());
+                throw new GatewayException(GatewayErrorCode.RISK_BLOCKED, e.getMessage());
+            }
+
+            // 8. Validate request against stored schemas
+            if (matchedRoute != null && matchedRoute.route().getApiId() != null) {
+                java.util.List<String> validationErrors = requestValidator.validate(
+                        matchedRoute.route().getApiId(), request);
                 if (!validationErrors.isEmpty()) {
                     String detail = String.join("; ", validationErrors);
                     throw new GatewayException(GatewayErrorCode.INVALID_REQUEST,
@@ -105,7 +172,7 @@ public class GatewayFilter extends OncePerRequestFilter {
                 }
             }
 
-            // 3. Forward to backend
+            // 9. Forward to backend
             RequestProxy.ProxyResult proxyResult = requestProxy.forward(
                     matchedRoute.fullTargetUrl(),
                     httpMethod,
@@ -115,12 +182,14 @@ public class GatewayFilter extends OncePerRequestFilter {
 
             responseStatus = proxyResult.statusCode();
 
-            // 4. Build unified response
+            // 10. Build unified response
             Object responseData = parseResponseBody(proxyResult.body());
             UnifiedResponse<Object> unifiedResponse = UnifiedResponse.success(responseData, requestId);
 
-            // 5. Write response
-            writeJsonResponse(response, proxyResult.isSuccess() ? HttpServletResponse.SC_OK : responseStatus, unifiedResponse);
+            // 11. Write response
+            writeJsonResponse(response,
+                    proxyResult.isSuccess() ? HttpServletResponse.SC_OK : responseStatus,
+                    unifiedResponse);
 
         } catch (GatewayException e) {
             responseStatus = mapToHttpStatus(e.getGatewayErrorCode());
@@ -148,7 +217,7 @@ public class GatewayFilter extends OncePerRequestFilter {
             writeJsonResponse(response, responseStatus, errorResponse);
 
         } finally {
-            // 6. Write access log (sync for MVP; can be async later)
+            // 12. Write access log (sync for MVP; can be async later)
             long costTime = System.currentTimeMillis() - startTime;
             try {
                 AccessLog accessLog = AccessLog.builder()
@@ -170,7 +239,7 @@ public class GatewayFilter extends OncePerRequestFilter {
                 log.error("Failed to write access log: requestId={}", requestId, logEx);
             }
 
-            // 6.1 Write API key usage log
+            // 13. Write API key usage log
             try {
                 if (ctx != null && ctx.getClientId() != null && matchedRoute != null) {
                     writeUsageLogForSuccess(ctx, matchedRoute, requestId);
@@ -190,7 +259,6 @@ public class GatewayFilter extends OncePerRequestFilter {
     }
 
     private String getClientId(HttpServletRequest request) {
-        // Extract from X-Client-Id header or use a default
         String clientId = request.getHeader("X-Client-Id");
         return clientId != null ? clientId : "anonymous";
     }
@@ -200,7 +268,6 @@ public class GatewayFilter extends OncePerRequestFilter {
             return null;
         }
         try {
-            // Try to parse as JSON, fallback to string
             return objectMapper.readTree(body);
         } catch (Exception e) {
             return new String(body);
@@ -218,9 +285,13 @@ public class GatewayFilter extends OncePerRequestFilter {
         return switch (errorCode) {
             case ROUTE_NOT_FOUND -> HttpServletResponse.SC_NOT_FOUND;
             case INVALID_REQUEST -> HttpServletResponse.SC_BAD_REQUEST;
-            case INVALID_API_KEY, API_KEY_EXPIRED, API_KEY_DISABLED -> HttpServletResponse.SC_UNAUTHORIZED;
-            case PERMISSION_DENIED -> HttpServletResponse.SC_FORBIDDEN;
-            case SERVICE_UNAVAILABLE, SERVICE_TIMEOUT, BACKEND_ERROR -> HttpServletResponse.SC_BAD_GATEWAY;
+            case INVALID_API_KEY, API_KEY_EXPIRED, API_KEY_DISABLED,
+                 INVALID_JWT, JWT_EXPIRED -> HttpServletResponse.SC_UNAUTHORIZED;
+            case PERMISSION_DENIED, TENANT_REQUIRED, IP_NOT_ALLOWED,
+                 TIME_NOT_ALLOWED -> HttpServletResponse.SC_FORBIDDEN;
+            case RISK_BLOCKED -> 429; // Too Many Requests
+            case SERVICE_UNAVAILABLE, SERVICE_TIMEOUT, BACKEND_ERROR ->
+                    HttpServletResponse.SC_BAD_GATEWAY;
             case GATEWAY_INTERNAL_ERROR -> HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
             default -> HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
         };
@@ -245,7 +316,7 @@ public class GatewayFilter extends OncePerRequestFilter {
     private void writeUsageLogForSuccess(RequestContext ctx, RequestRouter.RouteResult matchedRoute, String requestId) {
         try {
             ApiKeyUsageLog log = ApiKeyUsageLog.builder()
-                    .apiKeyId(null) // We don't have direct key ID here
+                    .apiKeyId(null)
                     .apiId(matchedRoute != null ? matchedRoute.route().getApiId() : null)
                     .requestId(requestId)
                     .ip("")

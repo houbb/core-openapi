@@ -22,6 +22,7 @@ public class ApiKey {
     private LocalDateTime expireTime;
     private LocalDateTime lastUsedTime;
     private LocalDateTime createdTime;
+    private String tenantId;
 
     /** Raw key value, ONLY populated at creation time. Never stored in DB. */
     @Builder.Default
