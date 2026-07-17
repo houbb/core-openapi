@@ -31,3 +31,8 @@ info:
   app:
     name: core-openapi
     description: API Foundation Runtime — API Catalog for Core Platform
+
+# Gateway config
+gateway:
+  default-timeout: 30000
+  proxy-prefix: /gateway

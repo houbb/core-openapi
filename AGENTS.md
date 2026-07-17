@@ -114,3 +114,7 @@ For substantial features, architecture changes, ambiguous product work, migratio
 2）尽可能的端到端测试验证，保障整体功能正确性
 
 3）简明扼要的使用+变更内容
+
+# 变更日志
+
+每一次功能全部完成后，将变更压缩更新到 CHANGELOG.md 中，版本号主动询问一下用户
