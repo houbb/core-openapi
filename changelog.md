@@ -1,5 +1,89 @@
 # Changelog
 
+## [0.8.0] — 2026-07-17
+
+### Phase 7：Developer Portal Runtime
+
+**目标**：把内部 OpenAPI 能力转换成开发者可以自助使用的生态入口，构建类似 Stripe Developer Dashboard 的开发者门户。
+
+#### 数据库变更 (V8__portal.sql)
+
+**扩展已有表**
+- `openapi_user` 新增 `developer_type`, `password_hash`, `avatar_url`, `company_name`, `phone` — 复用为开发者账号
+
+**新建表 (6 张)**
+- `api_subscription` — API 订阅（user_id, api_id, plan, status, max_qps, max_daily）
+- `developer_notification` — 开发者通知（user_id, title, content, type, is_read）
+- `developer_setting` — 开发者偏好设置（user_id, language, theme, notify_email, notify_usage）
+- `portal_document` — 门户文档（title, slug, category, content Markdown）
+- `portal_feedback` — 用户反馈（user_id, type, title, content, status, admin_reply）
+- 种子数据：Getting Started / API Reference / SDK Guide 三篇默认文档
+
+#### 后端 — Portal Runtime
+
+**认证基础设施**
+- `PortalJwtService` — Portal JWT 签发与验证（claims: userId, username, developerType），复用 `core-openapi.security.jwt.secret`
+- `PortalAuthFilter` — OncePerRequestFilter，拦截 `/api/v1/portal/**`，公开路径（/account/register, /account/login, /catalog, /docs, /sdk）无需认证
+- `PortalSecurityConfig` — FilterRegistrationBean 注册
+
+**核心模块 (10 个 Module)**
+
+1. **Developer Account Runtime** — 开发者注册/登录/个人资料/密码修改
+2. **Developer Dashboard Runtime** — 聚合仪表盘（应用数、Key 数、订阅数、今日调用）
+3. **API Catalog Runtime** — 公开 API 浏览（从 `openapi_definition` 读取 PUBLISHED 状态），支持关键词搜索
+4. **API Subscription Runtime** — 开发者订阅 API（FREE/STARTER/ENTERPRISE 计划），含配额管理
+5. **Application Center** — 开发者管理自己的应用（CRUD），owner_id 隔离
+6. **Credential Center** — 统一凭证管理（Key 生成/查看/吊销），仅创建时返回原始 Key
+7. **API Playground Runtime** — 在线 API 测试，通过 RestTemplate 转发到 Gateway
+8. **Documentation Runtime** — Markdown 文档管理（按分类浏览、按 slug 查看）
+9. **SDK Center** — SDK 列表与下载（Java / Python）
+10. **Usage Analytics Runtime** — 用量统计（总调用、今日/周/月、延迟、错误率）
+
+**API 端点 (30+ endpoint)**
+- 公开：`POST /api/v1/portal/account/register|login`, `GET /api/v1/portal/catalog|docs|sdk`
+- 认证：`GET|PUT /api/v1/portal/account/profile`, `POST /api/v1/portal/account/password`
+- 应用：`GET|POST /api/v1/portal/apps`, `GET|PUT|DELETE /api/v1/portal/apps/{id}`
+- 凭证：`GET|POST /api/v1/portal/apps/{id}/credentials`, `POST /api/v1/portal/credentials/{id}/revoke`
+- 订阅：`GET|POST /api/v1/portal/subscriptions`, `POST /api/v1/portal/subscriptions/{id}/cancel`
+- 其他：dashboard, playground/execute, analytics/overview, notifications, settings, feedback
+
+**架构**
+- 新包 `io.coreplatform.openapi.portal` — Portal 运行时独立模块
+- 完整六边形架构：domain → port → entity → mapper → repository → service → controller
+- 新增 52 个文件（6 domain + 6 port + 6 entity + 6 mapper + 6 repo impl + 13 service + 9 controller + 11 request + 14 response + 3 config + 1 SQL）
+
+#### 前端 — Developer Portal (`web-dev/`)
+
+**独立 Vue3 应用**（端口 5174，代理到 8107）
+- **PublicLayout** — 公开页面布局（Landing, Login, Register, Catalog, Docs, SDK）
+- **DeveloperLayout** — 认证页面布局（Dashboard, Apps, Credentials, Playground, Analytics, Settings, Feedback）
+- **路由守卫** — 基于 localStorage token 的前端认证拦截
+- **Auth Store (Pinia)** — token 管理、登录/注册/登出
+- **Axios 拦截器** — 自动附加 `Authorization: Bearer <token>`，401 自动跳转登录
+
+**页面 (16 pages)**
+- LandingPage — 产品主页（Hero + Features）
+- LoginPage / RegisterPage — 开发者登录/注册
+- DashboardPage — 统计卡片（应用、Key、订阅、调用量）
+- CatalogListPage / ApiDetailPage — API 浏览与详情
+- MyAppsPage / AppDetailPage — 应用管理 + Key 生成
+- CredentialListPage — 凭证列表
+- PlaygroundPage — API 在线测试（Method/URL/Body → Response）
+- DocsLayoutPage / DocContentPage — 文档分类浏览 + Markdown 渲染
+- SdkListPage — SDK 下载
+- AnalyticsPage — 用量图表
+- SettingsPage / FeedbackPage — 个人设置与反馈
+
+#### 验证结果
+- ✅ 后端编译通过 (mvn compile)
+- ✅ 前端构建通过 (vite build)
+- ⬜ Portal 注册/登录流程
+- ⬜ API Key 生成与吊销
+- ⬜ API Playground 执行
+- ⬜ Usage 统计查询
+
+---
+
 ## [0.7.0] — 2026-07-17
 
 ### Phase 6：Rate Limit Runtime
