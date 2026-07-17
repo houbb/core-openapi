@@ -1,5 +1,68 @@
 # Changelog
 
+## [0.5.0] — 2026-07-17
+
+### Phase 4：SDK Runtime + 目录重组
+
+**目标**：自动生成 Java/Python SDK + 项目目录规范化。
+
+#### 目录重组
+- `src/` → `backend/` — Spring Boot 后端（独立 Maven 工程，artifactId: `core-openapi-backend`）
+- `sdk/` — SDK 模块（独立 Maven 工程，artifactId: `core-openapi-sdk`，未来扩展占位）
+- `web/` — Vue3 前端（不变）
+- 删除根聚合 `pom.xml`，backend 和 sdk 各自独立
+- `changelog.md` → `CHANGELOG.md`
+- 新增 `README.md` — 项目整体文档
+
+#### 数据库变更 (V5__sdk.sql)
+
+**新建表 (2 张)**
+- `openapi_sdk_project` — SDK 项目（name, language, version, status）
+- `openapi_sdk_generation` — SDK 生成记录（api_ids, generator_version, download_url, file_size）
+
+#### 后端 — SDK Generator
+
+**核心服务**
+- `OpenApiSpecBuilder` — 从 DB 动态聚合 API Definition → OpenAPI 3.0 spec JSON
+  - 遍历 definition → parameter → requestSchema → responseSchema
+  - 自动映射参数位置、类型、必填、示例值
+- `SdkGeneratorService` — 主生成流程
+  - 写入 spec.json → 调用 OpenAPI Generator 7.8 → 打包 zip
+  - 异步状态管理：GENERATING → READY / FAILED
+  - 产物输出到 `data/sdk/`
+- `SdkController` — `/api/v1/openapi/sdk`
+  - `POST /generate` — 选择 API + 语言 → 生成
+  - `GET /projects` — SDK 项目列表（分页）
+  - `GET /projects/{id}` — 项目详情
+  - `GET /projects/{id}/generations` — 生成记录列表
+  - `GET /generations/{id}` — 生成记录详情
+  - `GET /generations/{id}/download` — 下载 SDK zip
+
+**已有模块增强**
+- `application.yml` 新增 `app.sdk.output-dir` 配置
+
+#### 前端 — SDK 管理
+
+**新增页面**
+- `SdkCenterPage.vue` — SDK 管理中心（路由：`/sdk`）
+  - SDK 项目列表（名称、语言、版本、状态、生成时间）
+  - 生成对话框：多选 API + 单选语言 + 填写名称版本 → 点击 Generate
+  - 生成记录面板：查看历次生成记录，状态为 READY 时可直接下载
+
+**API 层**
+- `web/src/api/sdk.ts` — SDK API 类型和函数（SdkProject, SdkGeneration, generateSdk 等）
+
+**路由 & 导航**
+- 新增 `/sdk` → `SdkCenterPage`
+- 侧边栏新增：🔧 SDK 管理
+
+#### 验证结果
+- ✅ backend 独立编译 + 12 个已有测试全部通过
+- ✅ sdk 独立编译通过
+- ✅ 前端 TypeScript 类型检查 + Vite 构建成功
+
+---
+
 ## [0.4.0] — 2026-07-17
 
 ### Phase 3：API Key Runtime

@@ -27,6 +27,10 @@
           <span class="nav-icon">📱</span>
           <span>应用管理</span>
         </router-link>
+        <router-link to="/sdk" class="nav-item" active-class="active">
+          <span class="nav-icon">🔧</span>
+          <span>SDK 管理</span>
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <span class="version">v1.0.0</span>

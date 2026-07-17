@@ -67,6 +67,12 @@ const routes = [
         component: () => import('@/pages/applications/ApplicationDetailPage.vue'),
         meta: { title: '应用详情' },
       },
+      {
+        path: 'sdk',
+        name: 'SdkCenter',
+        component: () => import('@/pages/sdk/SdkCenterPage.vue'),
+        meta: { title: 'SDK 管理' },
+      },
     ],
   },
 ]
