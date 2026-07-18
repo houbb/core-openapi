@@ -1,5 +1,84 @@
 # Changelog
 
+## [0.9.0] — 2026-07-18
+
+### Phase 8：API Marketplace Runtime
+
+**目标**：构建 API 商业化与生态层，将 API 从技术接口升级为可发现、可订阅、可组合、可交易的数字能力商品。
+
+#### 数据库变更 (V9__marketplace.sql)
+
+**新建表 (6 张)**
+- `api_provider` — API 提供者（name, type: OFFICIAL/PARTNER/COMMUNITY/ENTERPRISE, verified, status）
+- `api_product` — API 商品，将 `openapi_definition` 包装为商品（name, provider_id, api_id, category, status: DRAFT/PUBLISHED/DEPRECATED）
+- `api_plan` — 定价计划（product_id, name, price, billing_type: FREE/PER_REQUEST/TOKEN_BASED/TIERED, limit_config JSON）
+- `api_listing` — 商品上架展示信息（product_id, featured, sort_order, tags, highlight_text）
+- `api_review` — 用户评价（product_id, user_id, rating 1-5, comment）
+- `api_usage_record` — Provider 使用统计按日汇总（product_id, api_id, user_id, request_count, token_count, recorded_date）
+
+**扩展已有表 (1 张)**
+- `api_subscription` 新增 `plan_id` 字段 — 关联到具体定价计划
+
+**种子数据**
+- 默认 OFFICIAL Provider: "Core Platform Official"
+
+#### 后端 — Marketplace Runtime
+
+**核心模块 (7 个 Module)**
+
+1. **API Product Runtime** — 商品 CRUD + 发布/下架 + 列表搜索
+2. **Provider Runtime** — Provider CRUD + 认证 + 状态管理
+3. **Pricing Runtime** — 定价计划 CRUD + 绑定商品
+4. **Review Runtime** — 评价 CRUD + 评分统计
+5. **Listing Runtime** — 上架管理 + 首页推荐
+6. **Marketplace Browse Runtime** — 公开浏览（热门推荐、分类浏览、关键词搜索、商品详情）
+7. **Provider Analytics Runtime** — Provider 视角仪表盘（调用量、用户数、商品统计）
+
+**API 端点 (30+ endpoint)**
+- 管理端：`/api/v1/openapi/marketplace/products|providers|admin` — 商品/Provider/上架管理
+- 商品子资源：`/products/{id}/plans` 定价计划 CRUD，`/products/{id}/reviews` 评价管理
+- 公开浏览：`/api/v1/marketplace/public/featured|category/{cat}|search|products/{id}` — 无需认证
+- Provider 仪表盘：`/api/v1/openapi/marketplace/provider/dashboard|analytics/{productId}`
+
+**架构**
+- 新包 `io.coreplatform.openapi.marketplace` — Marketplace 运行时独立模块
+- 完整六边形架构：domain → port → entity → mapper → repository → service → controller
+- 新增 56 个文件（6 domain + 6 port + 6 entity + 6 mapper + 6 repo impl + 7 service + 7 controller + 6 request + 6 response + 1 SQL）
+
+#### 前端 — 管理后台 (web/)
+
+**新增页面 (4 pages)**
+- `MarketplacePage.vue` — Marketplace 管理总览（商品数、Provider 数、待审核数）
+- `ProductManagePage.vue` — 商品管理列表 + 创建/编辑/发布/下架
+- `ProviderManagePage.vue` — Provider 管理列表 + 创建/编辑/认证
+- `ProviderDetailPage.vue` — Provider 详情
+
+**API 层**
+- `web/src/api/marketplace.ts` — Marketplace 全部 API 类型和函数
+
+**路由 & 导航**
+- 新增路由：`/marketplace`, `/marketplace/products`, `/marketplace/providers`, `/marketplace/providers/:id`
+- 侧边栏新增 Marketplace 分组：🏪 Marketplace、📦 商品管理、🏢 Provider
+
+#### 前端 — 开发者门户 (web-dev/)
+
+**新增页面 (2 pages)**
+- `MarketplaceHomePage.vue` — 公开首页（Hero + 搜索、🔥 热门推荐、📂 按分类浏览）
+- `ProductDetailPage.vue` — 商品详情（Provider 信息、定价计划列表）
+
+**API 层**
+- `web-dev/src/api/marketplace.ts` — 公开 Marketplace API 客户端
+
+**路由**
+- 新增：`/marketplace` → MarketplaceHomePage，`/marketplace/:id` → ProductDetailPage
+
+#### 验证结果
+- ✅ 后端编译通过 (mvn compile)
+- ✅ 管理后台构建通过 (vite build)
+- ✅ 开发者门户构建通过 (vite build)
+
+---
+
 ## [0.8.0] — 2026-07-17
 
 ### Phase 7：Developer Portal Runtime

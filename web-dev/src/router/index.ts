@@ -14,6 +14,9 @@ const routes = [
         { path: ':slug', name: 'DocContent', component: () => import('@/pages/docs/DocContentPage.vue') }
       ]},
       { path: 'sdk', name: 'SdkList', component: () => import('@/pages/sdk/SdkListPage.vue') },
+      // Marketplace public routes
+      { path: 'marketplace', name: 'MarketplaceHome', component: () => import('@/pages/marketplace/MarketplaceHomePage.vue') },
+      { path: 'marketplace/:id', name: 'MarketplaceProductDetail', component: () => import('@/pages/marketplace/ProductDetailPage.vue') },
     ],
   },
   {

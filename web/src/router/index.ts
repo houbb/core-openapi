@@ -73,6 +73,30 @@ const routes = [
         component: () => import('@/pages/sdk/SdkCenterPage.vue'),
         meta: { title: 'SDK 管理' },
       },
+      {
+        path: 'marketplace',
+        name: 'Marketplace',
+        component: () => import('@/pages/marketplace/MarketplacePage.vue'),
+        meta: { title: 'Marketplace' },
+      },
+      {
+        path: 'marketplace/products',
+        name: 'ProductManage',
+        component: () => import('@/pages/marketplace/ProductManagePage.vue'),
+        meta: { title: '商品管理' },
+      },
+      {
+        path: 'marketplace/providers',
+        name: 'ProviderManage',
+        component: () => import('@/pages/marketplace/ProviderManagePage.vue'),
+        meta: { title: 'Provider 管理' },
+      },
+      {
+        path: 'marketplace/providers/:id',
+        name: 'ProviderDetail',
+        component: () => import('@/pages/marketplace/ProviderDetailPage.vue'),
+        meta: { title: 'Provider 详情' },
+      },
     ],
   },
 ]

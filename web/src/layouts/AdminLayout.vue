@@ -31,6 +31,20 @@
           <span class="nav-icon">🔧</span>
           <span>SDK 管理</span>
         </router-link>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Marketplace</div>
+        <router-link to="/marketplace" class="nav-item" active-class="active">
+          <span class="nav-icon">🏪</span>
+          <span>Marketplace</span>
+        </router-link>
+        <router-link to="/marketplace/products" class="nav-item" active-class="active">
+          <span class="nav-icon">📦</span>
+          <span>商品管理</span>
+        </router-link>
+        <router-link to="/marketplace/providers" class="nav-item" active-class="active">
+          <span class="nav-icon">🏢</span>
+          <span>Provider</span>
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <span class="version">v1.0.0</span>
