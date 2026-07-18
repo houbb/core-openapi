@@ -95,6 +95,11 @@ public class DefinitionRepositoryImpl implements DefinitionRepository {
         entity.setDescription(domain.getDescription());
         entity.setCategory(domain.getCategory());
         entity.setStatus(domain.getStatus());
+        entity.setLifecycleStatus(domain.getLifecycleStatus());
+        entity.setReviewerId(domain.getReviewerId());
+        entity.setReviewedAt(domain.getReviewedAt());
+        entity.setGovernanceTags(domain.getGovernanceTags());
+        entity.setTenantId(domain.getTenantId());
         entity.setCreateTime(domain.getCreateTime());
         entity.setUpdateTime(domain.getUpdateTime());
         entity.setCreateUser(domain.getCreateUser());
@@ -112,6 +117,11 @@ public class DefinitionRepositoryImpl implements DefinitionRepository {
                 .description(entity.getDescription())
                 .category(entity.getCategory())
                 .status(entity.getStatus())
+                .lifecycleStatus(entity.getLifecycleStatus())
+                .reviewerId(entity.getReviewerId())
+                .reviewedAt(entity.getReviewedAt())
+                .governanceTags(entity.getGovernanceTags())
+                .tenantId(entity.getTenantId())
                 .createTime(entity.getCreateTime())
                 .updateTime(entity.getUpdateTime())
                 .createUser(entity.getCreateUser())

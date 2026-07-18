@@ -1,30 +1,27 @@
-package io.coreplatform.openapi.application.domain;
+package io.coreplatform.openapi.enterprise.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Definition {
+public class SlaPolicy {
     private Long id;
-    private Long serviceId;
+    private Long organizationId;
     private String name;
-    private String path;
-    private String httpMethod;
-    private String description;
-    private String category;
+    private BigDecimal availability;
+    private Integer responseTimeMs;
+    private Integer latencyP99Ms;
+    private String supportLevel;
+    private Integer incidentResponseMin;
     private String status;
-    private String lifecycleStatus;
-    private Long reviewerId;
-    private LocalDateTime reviewedAt;
-    private String governanceTags;
-    private String tenantId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private String createUser;

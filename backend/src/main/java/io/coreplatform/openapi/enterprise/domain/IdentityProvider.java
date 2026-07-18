@@ -1,4 +1,4 @@
-package io.coreplatform.openapi.application.domain;
+package io.coreplatform.openapi.enterprise.domain;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,20 +11,14 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Definition {
+public class IdentityProvider {
     private Long id;
-    private Long serviceId;
+    private Long organizationId;
+    private String providerType;
     private String name;
-    private String path;
-    private String httpMethod;
-    private String description;
-    private String category;
+    private String configJson;
+    private Integer isDefault;
     private String status;
-    private String lifecycleStatus;
-    private Long reviewerId;
-    private LocalDateTime reviewedAt;
-    private String governanceTags;
-    private String tenantId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private String createUser;

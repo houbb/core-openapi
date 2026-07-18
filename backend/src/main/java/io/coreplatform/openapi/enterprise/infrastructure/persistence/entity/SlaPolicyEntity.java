@@ -1,30 +1,26 @@
-package io.coreplatform.openapi.infrastructure.persistence.entity;
+package io.coreplatform.openapi.enterprise.infrastructure.persistence.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("openapi_definition")
-public class DefinitionEntity {
-
+@TableName("enterprise_sla_policy")
+public class SlaPolicyEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long serviceId;
+    private Long organizationId;
     private String name;
-    private String path;
-    private String httpMethod;
-    private String description;
-    private String category;
+    private BigDecimal availability;
+    private Integer responseTimeMs;
+    private Integer latencyP99Ms;
+    private String supportLevel;
+    private Integer incidentResponseMin;
     private String status;
-    private String lifecycleStatus;
-    private Long reviewerId;
-    private LocalDateTime reviewedAt;
-    private String governanceTags;
-    private String tenantId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private String createUser;

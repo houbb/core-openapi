@@ -45,6 +45,40 @@
           <span class="nav-icon">🏢</span>
           <span>Provider</span>
         </router-link>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Enterprise</div>
+        <router-link to="/enterprise" class="nav-item" active-class="active">
+          <span class="nav-icon">🏢</span>
+          <span>企业控制台</span>
+        </router-link>
+        <router-link to="/enterprise/organizations" class="nav-item" active-class="active">
+          <span class="nav-icon">🏭</span>
+          <span>组织管理</span>
+        </router-link>
+        <router-link to="/enterprise/partners" class="nav-item" active-class="active">
+          <span class="nav-icon">🤝</span>
+          <span>合作伙伴</span>
+        </router-link>
+        <router-link to="/enterprise/contracts" class="nav-item" active-class="active">
+          <span class="nav-icon">📋</span>
+          <span>合同管理</span>
+        </router-link>
+        <router-link to="/enterprise/sla" class="nav-item" active-class="active">
+          <span class="nav-icon">🎯</span>
+          <span>SLA 策略</span>
+        </router-link>
+        <router-link to="/enterprise/governance" class="nav-item" active-class="active">
+          <span class="nav-icon">🔍</span>
+          <span>API 治理</span>
+        </router-link>
+        <router-link to="/enterprise/audit" class="nav-item" active-class="active">
+          <span class="nav-icon">📝</span>
+          <span>审计日志</span>
+        </router-link>
+        <router-link to="/enterprise/compliance" class="nav-item" active-class="active">
+          <span class="nav-icon">🛡️</span>
+          <span>合规管理</span>
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <span class="version">v1.0.0</span>

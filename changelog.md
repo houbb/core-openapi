@@ -1,5 +1,122 @@
 # Changelog
 
+## [0.10.0] — 2026-07-18
+
+### Phase 9：Enterprise Open Platform
+
+**目标**：构建企业级开放能力操作系统，支持多组织、租户隔离、合作伙伴管理、API治理、合规审计等企业级能力。
+
+#### 决策确认
+
+- 模块包名：`io.coreplatform.openapi.enterprise`（与 marketplace/security 保持一致）
+- 组织模型：Organization → Team → Member 三级完整模型
+- Tenant 隔离：扩展现有表加 tenant_id（api_definition, openapi_service, api_key_usage_log 等 9 张表）
+- Audit：复用 security_audit_log 表
+- SLA：Organization 级别
+- Partner：独立实体（与 Organization 分离）
+- API Governance：扩展 api_definition 表加 lifecycle_status/reviewer_id/reviewed_at/governance_tags
+
+#### 数据库变更 (V10__enterprise.sql)
+
+**新建表 (12 张)**
+- `enterprise_organization` — 企业组织（name, code, type: ENTERPRISE/PARTNER/INTERNAL, owner_id, status, tenant_id）
+- `enterprise_team` — 团队（organization_id, parent_id, name, leader_id, sort_order）
+- `enterprise_member` — 组织成员（organization_id, team_id, user_id, role: OWNER/ADMIN/MEMBER/VIEWER, status）
+- `enterprise_partner` — 合作伙伴独立实体（name, level: STANDARD/PREMIUM/STRATEGIC, contact_*）
+- `enterprise_partner_api` — Partner-API 授权关联表
+- `enterprise_contract` — 企业合同（contract_no, plan_name, start_date/end_date, max_requests, max_qps, support_*）
+- `enterprise_sla_policy` — SLA 策略（availability, response_time_ms, latency_p99_ms, support_level, incident_response_min）
+- `enterprise_billing` — 基础计费账户（balance, currency）
+- `enterprise_billing_record` — 计费记录（CHARGE/REFUND/ADJUSTMENT）
+- `enterprise_compliance` — 合规策略（policy_type: DATA_RETENTION/DATA_MASKING/CROSS_REGION/AUDIT_LEVEL/IP_WHITELIST, config_json）
+- `enterprise_identity` — 身份提供商（provider_type: LDAP/SAML/OAUTH2/OIDC/SSO, config_json, is_default）
+- `enterprise_setting` — 企业级设置（domain, enable_sso, enable_audit, data_region, retention_days）
+
+**扩展已有表 (9 张)**
+- `openapi_definition` — 新增 lifecycle_status, reviewer_id, reviewed_at, governance_tags, tenant_id
+- `openapi_service` — 新增 tenant_id
+- `openapi_parameter` — 新增 tenant_id
+- `openapi_response` — 新增 tenant_id
+- `openapi_version` — 新增 tenant_id
+- `openapi_tag` — 新增 tenant_id
+- `api_key_usage_log` — 新增 tenant_id
+- `api_permission` — 新增 tenant_id
+- `api_subscription` — 新增 tenant_id
+
+**种子数据**
+- 默认 INTERNAL 组织: "Core Platform Internal"
+
+#### 后端 — Enterprise Runtime (11 个 Controller)
+
+**核心模块 (9 个子模块)**
+1. **Organization Runtime** — Organization CRUD + 分页搜索 + 状态管理
+2. **Team Runtime** — 组织下 Team 层次管理（parent_id 自引用）
+3. **Member Runtime** — 成员增删改查 + 角色变更 + 团队分配
+4. **Partner Runtime** — 独立 Partner CRUD + 等级管理
+5. **Contract Runtime** — 合同 CRUD + DRAFT→ACTIVE→EXPIRED 状态转换
+6. **SLA Runtime** — Organization 级别 SLA 创建/更新（按组织 upsert）
+7. **Billing Runtime** — 基础计费账户创建/查询
+8. **Compliance Runtime** — 合规策略 CRUD + 按类型查询
+9. **Identity Runtime** — SSO/LDAP 身份提供商管理
+
+**额外 Controller**
+10. **Enterprise Dashboard Controller** — 企业控制台总览（组织数、合作伙伴数、合同数）
+11. **Enterprise Audit Controller** — 企业审计日志（复用 security_audit_log）
+12. **API Governance Controller** — API 生命周期状态转换（DRAFT→REVIEW→APPROVED→PUBLISHED→DEPRECATED）
+
+**API 端点 (40+ endpoint)**
+- 组织管理：`/api/v1/openapi/enterprise/organizations` — CRUD + 状态管理
+- 团队管理：`/api/v1/openapi/enterprise/organizations/{orgId}/teams` — 组织下团队 CRUD
+- 成员管理：`/api/v1/openapi/enterprise/organizations/{orgId}/members` — 成员 CRUD + 角色/团队变更
+- 合作伙伴：`/api/v1/openapi/enterprise/partners` — CRUD + 分页
+- 合同管理：`/api/v1/openapi/enterprise/contracts` — CRUD + activate/expire
+- SLA：`/api/v1/openapi/enterprise/sla-policies` — 按组织 upsert
+- 计费：`/api/v1/openapi/enterprise/billing` — 按组织查询/创建
+- 合规：`/api/v1/openapi/enterprise/compliance` — CRUD
+- 身份：`/api/v1/openapi/enterprise/identity` — CRUD
+- 审计：`/api/v1/openapi/enterprise/audit/logs` — 分页查询 security_audit_log
+- 治理：`/api/v1/openapi/definitions/{id}/lifecycle` — 生命周期状态转换
+- 仪表盘：`/api/v1/openapi/enterprise/dashboard` — 平台总览
+
+**架构**
+- 新包 `io.coreplatform.openapi.enterprise` — Enterprise 运行时独立模块
+- 完整六边形架构：domain → port → entity → mapper → repository → service → controller
+- 新增 67 个 Java 文件（9 domain + 9 port + 9 entity + 9 mapper + 9 repo impl + 10 service + 12 controller + 9 request + 10 response + 1 test + 1 SQL）
+- 扩展 3 个现有文件（Definition domain, DefinitionEntity, DefinitionRepositoryImpl）追加治理字段
+
+#### 前端 — Enterprise Console (web/)
+
+**新增页面 (9 pages)**
+- `EnterpriseDashboardPage.vue` — 企业控制台首页（统计卡片 + 快捷入口）
+- `OrganizationListPage.vue` — 组织管理（列表+搜索+创建/编辑 Modal）
+- `OrganizationDetailPage.vue` — 组织详情（信息+成员Tab+团队Tab+SLA Tab）
+- `PartnerListPage.vue` — 合作伙伴管理（CRUD + 等级筛选）
+- `ContractListPage.vue` — 合同管理（CRUD + 激活/到期）
+- `SlaPolicyPage.vue` — SLA 策略（按组织 upsert）
+- `ApiGovernancePage.vue` — API 治理（生命周期状态转换）
+- `AuditLogPage.vue` — 审计日志（事件/结果筛选）
+- `CompliancePage.vue` — 合规管理（策略 CRUD）
+
+**API 客户端**
+- `web/src/api/enterprise.ts` — 完整 TypeScript API 客户端（类型定义 + 50+ 函数）
+
+**路由**
+- 新增 9 条 enterprise 路由（/enterprise, /enterprise/organizations, /enterprise/partners, /enterprise/contracts, /enterprise/sla, /enterprise/governance, /enterprise/audit, /enterprise/compliance）
+
+**导航**
+- AdminLayout 新增 Enterprise 导航分区（8 个菜单项）
+
+#### 测试
+
+- `EnterpriseServiceTest` — 14 个单元测试，覆盖：
+  - Organization CRUD + 状态转变
+  - Member 增删改查 + 重复检测 + 角色变更 + 团队分配
+  - Partner 创建 + 等级验证
+  - Contract DRAFT→ACTIVE→EXPIRED 状态机
+  - 端到端企业工作流（创建组织→添加成员→创建合作伙伴→创建并激活合同）
+
+---
+
 ## [0.9.0] — 2026-07-18
 
 ### Phase 8：API Marketplace Runtime

@@ -1,4 +1,4 @@
-package io.coreplatform.openapi.infrastructure.persistence.entity;
+package io.coreplatform.openapi.enterprise.infrastructure.persistence.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -8,22 +8,20 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("openapi_definition")
-public class DefinitionEntity {
-
+@TableName("enterprise_organization")
+public class OrganizationEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
-    private Long serviceId;
     private String name;
-    private String path;
-    private String httpMethod;
-    private String description;
-    private String category;
+    private String code;
+    private String type;
+    private Long ownerId;
     private String status;
-    private String lifecycleStatus;
-    private Long reviewerId;
-    private LocalDateTime reviewedAt;
-    private String governanceTags;
+    private String description;
+    private String logoUrl;
+    private String website;
+    private String contactEmail;
+    private String contactPhone;
     private String tenantId;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
